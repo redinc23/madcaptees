@@ -1,8 +1,16 @@
-import { useState } from 'react';
-import { Package, DollarSign, ShoppingCart, TrendingUp, Plus, ChevronLeft, LogOut, BarChart3, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Package, DollarSign, ShoppingCart, TrendingUp, Plus, ChevronLeft, LogOut, BarChart3, Search, Loader2 } from 'lucide-react';
 import type { Product, AppView, OrderStatus } from '@/types';
-import { getProducts, getOrders, updateProduct, deleteProduct, togglePublish, updateOrderStatus, generateSlug } from '@/lib/data';
-import { formatPrice } from '@/lib/data';
+import { formatPrice, generateSlug } from '@/lib/data';
+import {
+  fetchProducts,
+  fetchOrders,
+  createProduct,
+  updateProduct as updateProductApi,
+  deleteProduct as deleteProductApi,
+  toggleProductPublished as toggleProductPublishedApi,
+  updateOrderStatus as updateOrderStatusApi,
+} from '@/lib/api';
 
 interface AdminDashboardProps {
   onNavigate: (view: AppView) => void;
@@ -15,8 +23,43 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const products = getProducts();
-  const orders = getOrders();
+  // Data & loading states
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Load data from Supabase on mount
+  useEffect(() => {
+    loadProducts();
+    loadOrders();
+  }, []);
+
+  const loadProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const data = await fetchProducts();
+      setProducts(data);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const loadOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const data = await fetchOrders();
+      setOrders(data);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   const publishedCount = products.filter(p => p.published).length;
   const totalRevenue = orders.filter((o: any) => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered').reduce((s: number, o: any) => s + o.total_amount, 0);
   const recentOrders = orders.slice(0, 5);
@@ -44,39 +87,77 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.title || !formData.base_price) return;
-    const now = new Date().toISOString();
-    if (editingProduct) {
-      updateProduct({ ...editingProduct, ...formData, updated_at: now } as Product);
-    } else {
-      const newProduct: Product = {
-        id: `prod-${Date.now()}`,
-        slug: generateSlug(formData.title!),
-        created_at: now,
-        updated_at: now,
-        product_images: [],
-        product_variants: [
-          { id: `var-${Date.now()}-1`, product_id: `prod-${Date.now()}`, size: 'S', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
-          { id: `var-${Date.now()}-2`, product_id: `prod-${Date.now()}`, size: 'M', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
-          { id: `var-${Date.now()}-3`, product_id: `prod-${Date.now()}`, size: 'L', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
-          { id: `var-${Date.now()}-4`, product_id: `prod-${Date.now()}`, size: 'XL', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
-        ],
-        ...formData,
-      } as Product;
-      getProducts().push(newProduct);
+    setActionLoading('save');
+    try {
+      if (editingProduct) {
+        await updateProductApi(editingProduct.id, { ...formData });
+      } else {
+        const now = new Date().toISOString();
+        const newProductId = `prod-${Date.now()}`;
+        const newProduct = {
+          title: formData.title!,
+          slug: formData.slug || generateSlug(formData.title!),
+          description: formData.description ?? null,
+          base_price: formData.base_price!,
+          sale_price: formData.sale_price ?? null,
+          category: (formData.category as Product['category']) || 'tees',
+          tags: formData.tags || [],
+          themes: formData.themes || [],
+          published: formData.published ?? true,
+          featured: formData.featured ?? false,
+          best_seller: formData.best_seller ?? false,
+          made_to_order: formData.made_to_order ?? true,
+          product_images: [],
+          product_variants: [
+            { size: 'S', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
+            { size: 'M', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
+            { size: 'L', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
+            { size: 'XL', color: 'Black', sku: null, pod_variant_id: null, price_adjustment: 0, stock: null, available: true },
+          ],
+        };
+        await createProduct(newProduct);
+      }
+      await loadProducts();
+      setShowForm(false);
+      setEditingProduct(null);
+    } catch (err) {
+      console.error('Save product failed:', err);
+    } finally {
+      setActionLoading(null);
     }
-    setShowForm(false);
-    setEditingProduct(null);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProduct(id);
-    setDeleteConfirm(null);
+  const handleDelete = async (id: string) => {
+    setActionLoading('delete');
+    try {
+      await deleteProductApi(id);
+      await loadProducts();
+    } catch (err) {
+      console.error('Delete product failed:', err);
+    } finally {
+      setActionLoading(null);
+      setDeleteConfirm(null);
+    }
   };
 
-  const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
-    updateOrderStatus(orderId, status);
+  const handleTogglePublish = async (id: string, currentPublished: boolean) => {
+    try {
+      await toggleProductPublishedApi(id, !currentPublished);
+      await loadProducts();
+    } catch (err) {
+      console.error('Toggle publish failed:', err);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    try {
+      await updateOrderStatusApi(orderId, status);
+      await loadOrders();
+    } catch (err) {
+      console.error('Update order status failed:', err);
+    }
   };
 
   const filteredProducts = products.filter(p =>
@@ -248,9 +329,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             {/* Save */}
             <button
               onClick={handleSave}
-              className="w-full py-4 text-white text-sm uppercase tracking-wider hover:translate-y-[-2px] transition-all"
+              disabled={actionLoading === 'save'}
+              className="w-full py-4 text-white text-sm uppercase tracking-wider hover:translate-y-[-2px] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ backgroundColor: '#C41E3A', fontFamily: "'Space Mono', monospace" }}
             >
+              {actionLoading === 'save' && <Loader2 size={16} className="animate-spin" />}
               {editingProduct ? 'Save Changes' : 'Publish Product'}
             </button>
           </div>
@@ -405,74 +488,80 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               </div>
             </div>
 
-            <div className="bg-white border border-[#0A0A0A]/15 overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead>
-                  <tr className="border-b border-[#0A0A0A]/10">
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Product</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Category</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Price</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Themes</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Status</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A0A0A]/10">
-                  {filteredProducts.map(product => (
-                    <tr key={product.id} className="hover:bg-[#F5F0E8] transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-[#F5F0E8] border border-[#0A0A0A]/10 flex-shrink-0">
-                            {product.product_images[0] && (
-                              <img src={product.product_images[0].url} alt="" className="w-full h-full object-cover" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{product.title}</p>
-                            <p className="text-xs text-[#64748B]">{product.slug}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm capitalize">{product.category}</td>
-                      <td className="px-4 py-3 text-sm">
-                        {product.sale_price ? (
-                          <>
-                            <span className="line-through text-[#64748B]">{formatPrice(product.base_price)}</span>
-                            <span className="ml-2 font-bold" style={{ color: '#C41E3A' }}>{formatPrice(product.sale_price)}</span>
-                          </>
-                        ) : (
-                          formatPrice(product.base_price)
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {product.themes.map(t => (
-                            <span key={t} className="text-[10px] px-1.5 py-0.5 bg-[#F5F0E8] border border-[#0A0A0A]/10" style={{ fontFamily: "'Space Mono', monospace" }}>{t}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => togglePublish(product.id)}
-                          className={`text-xs px-2 py-1 ${product.published ? 'bg-[#00C853] text-white' : 'bg-[#64748B] text-white'}`}
-                          style={{ fontFamily: "'Space Mono', monospace" }}
-                        >
-                          {product.published ? 'LIVE' : 'DRAFT'}
-                        </button>
-                        {product.featured && <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-[#1B7A7A] text-white">FEAT</span>}
-                        {product.best_seller && <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-[#D4A843] text-[#0A0A0A]">BS</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => startEdit(product)} className="text-xs px-3 py-1.5 border border-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white transition-all" style={{ fontFamily: "'Space Mono', monospace" }}>Edit</button>
-                          <button onClick={() => setDeleteConfirm(product.id)} className="text-xs px-3 py-1.5 border border-[#D32F2F] text-[#D32F2F] hover:bg-[#D32F2F] hover:text-white transition-all" style={{ fontFamily: "'Space Mono', monospace" }}>Delete</button>
-                        </div>
-                      </td>
+            {productsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 size={32} className="animate-spin text-[#64748B]" />
+              </div>
+            ) : (
+              <div className="bg-white border border-[#0A0A0A]/15 overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead>
+                    <tr className="border-b border-[#0A0A0A]/10">
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Product</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Category</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Price</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Themes</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Status</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A0A0A]/10">
+                    {filteredProducts.map(product => (
+                      <tr key={product.id} className="hover:bg-[#F5F0E8] transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-[#F5F0E8] border border-[#0A0A0A]/10 flex-shrink-0">
+                              {product.product_images[0] && (
+                                <img src={product.product_images[0].url} alt="" className="w-full h-full object-cover" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{product.title}</p>
+                              <p className="text-xs text-[#64748B]">{product.slug}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm capitalize">{product.category}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {product.sale_price ? (
+                            <>
+                              <span className="line-through text-[#64748B]">{formatPrice(product.base_price)}</span>
+                              <span className="ml-2 font-bold" style={{ color: '#C41E3A' }}>{formatPrice(product.sale_price)}</span>
+                            </>
+                          ) : (
+                            formatPrice(product.base_price)
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {product.themes.map(t => (
+                              <span key={t} className="text-[10px] px-1.5 py-0.5 bg-[#F5F0E8] border border-[#0A0A0A]/10" style={{ fontFamily: "'Space Mono', monospace" }}>{t}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleTogglePublish(product.id, product.published)}
+                            className={`text-xs px-2 py-1 ${product.published ? 'bg-[#00C853] text-white' : 'bg-[#64748B] text-white'}`}
+                            style={{ fontFamily: "'Space Mono', monospace" }}
+                          >
+                            {product.published ? 'LIVE' : 'DRAFT'}
+                          </button>
+                          {product.featured && <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-[#1B7A7A] text-white">FEAT</span>}
+                          {product.best_seller && <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-[#D4A843] text-[#0A0A0A]">BS</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => startEdit(product)} className="text-xs px-3 py-1.5 border border-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white transition-all" style={{ fontFamily: "'Space Mono', monospace" }}>Edit</button>
+                            <button onClick={() => setDeleteConfirm(product.id)} className="text-xs px-3 py-1.5 border border-[#D32F2F] text-[#D32F2F] hover:bg-[#D32F2F] hover:text-white transition-all" style={{ fontFamily: "'Space Mono', monospace" }}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Delete Confirm */}
             {deleteConfirm && (
@@ -483,7 +572,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   <p className="text-sm text-[#64748B] mb-4">This action cannot be undone.</p>
                   <div className="flex gap-3">
                     <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 border border-[#0A0A0A] text-sm">Cancel</button>
-                    <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2 bg-[#D32F2F] text-white text-sm">Delete</button>
+                    <button
+                      onClick={() => handleDelete(deleteConfirm)}
+                      disabled={actionLoading === 'delete'}
+                      className="flex-1 py-2 bg-[#D32F2F] text-white text-sm disabled:opacity-60"
+                    >
+                      {actionLoading === 'delete' ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -504,50 +599,57 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 Export CSV
               </button>
             </div>
-            <div className="bg-white border border-[#0A0A0A]/15 overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr className="border-b border-[#0A0A0A]/10">
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Order</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Date</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Customer</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Items</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Total</th>
-                    <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A0A0A]/10">
-                  {orders.map(order => (
-                    <tr key={order.id} className="hover:bg-[#F5F0E8] transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium" style={{ fontFamily: "'Space Mono', monospace" }}>{order.id}</p>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{new Date(order.created_at).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm">{order.shipping_address?.name || 'Guest'}</p>
-                        <p className="text-xs text-[#64748B]">{order.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{order.order_items?.length || 0} items</td>
-                      <td className="px-4 py-3 text-sm font-medium">{formatPrice(order.total_amount)}</td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={order.status}
-                          onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as OrderStatus)}
-                          className="text-xs px-2 py-1 border border-[#0A0A0A]/20 bg-white"
-                          style={{ fontFamily: "'Space Mono', monospace" }}
-                        >
-                          <option value="pending">PENDING</option>
-                          <option value="paid">PAID</option>
-                          <option value="shipped">SHIPPED</option>
-                          <option value="delivered">DELIVERED</option>
-                          <option value="cancelled">CANCELLED</option>
-                        </select>
-                      </td>
+
+            {ordersLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 size={32} className="animate-spin text-[#64748B]" />
+              </div>
+            ) : (
+              <div className="bg-white border border-[#0A0A0A]/15 overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-[#0A0A0A]/10">
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Order</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Date</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Customer</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Items</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Total</th>
+                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A0A0A]/10">
+                    {orders.map(order => (
+                      <tr key={order.id} className="hover:bg-[#F5F0E8] transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium" style={{ fontFamily: "'Space Mono', monospace" }}>{order.id}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{new Date(order.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm">{order.shipping_address?.name || 'Guest'}</p>
+                          <p className="text-xs text-[#64748B]">{order.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{order.order_items?.length || 0} items</td>
+                        <td className="px-4 py-3 text-sm font-medium">{formatPrice(order.total_amount)}</td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={order.status}
+                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as OrderStatus)}
+                            className="text-xs px-2 py-1 border border-[#0A0A0A]/20 bg-white"
+                            style={{ fontFamily: "'Space Mono', monospace" }}
+                          >
+                            <option value="pending">PENDING</option>
+                            <option value="paid">PAID</option>
+                            <option value="shipped">SHIPPED</option>
+                            <option value="delivered">DELIVERED</option>
+                            <option value="cancelled">CANCELLED</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </div>
