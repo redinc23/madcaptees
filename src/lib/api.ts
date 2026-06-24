@@ -307,8 +307,10 @@ export type InsertProduct = Omit<
 
 export async function createProduct(product: InsertProduct): Promise<Product> {
   if (!hasSupabaseConfig) {
+    const localId = `prod-${Date.now()}`;
+    const now = new Date().toISOString();
     const newProduct: Product = {
-      id: `prod-${Date.now()}`,
+      id: localId,
       title: product.title,
       slug: product.slug,
       description: product.description ?? null,
@@ -321,19 +323,19 @@ export async function createProduct(product: InsertProduct): Promise<Product> {
       featured: product.featured,
       best_seller: product.best_seller,
       made_to_order: product.made_to_order,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
       product_images: (product.product_images ?? []).map((img, i) => ({
-        id: `img-${Date.now()}-${i}`,
-        product_id: `prod-${Date.now()}`,
+        id: `img-${localId}-${i}`,
+        product_id: localId,
         url: img.url,
         alt_text: img.alt_text ?? null,
         is_primary: img.is_primary ?? i === 0,
         sort_order: img.sort_order ?? i,
       })),
       product_variants: (product.product_variants ?? []).map((v, i) => ({
-        id: `var-${Date.now()}-${i}`,
-        product_id: `prod-${Date.now()}`,
+        id: `var-${localId}-${i}`,
+        product_id: localId,
         size: v.size,
         color: v.color,
         sku: v.sku ?? null,
