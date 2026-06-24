@@ -25,10 +25,12 @@ export function CheckoutPage({ items, subtotal, shipping, total, onNavigate, onC
   };
 
   const handlePlaceOrder = () => {
+    const timestamp = Date.now();
+    const orderId = `ord-${timestamp}`;
     const newOrder: any = {
-      id: `ord-${Date.now()}`,
+      id: orderId,
       user_id: null,
-      stripe_session_id: `cs_demo_${Date.now()}`,
+      stripe_session_id: `cs_demo_${timestamp}`,
       total_amount: total,
       subtotal,
       shipping_cost: shipping,
@@ -37,9 +39,9 @@ export function CheckoutPage({ items, subtotal, shipping, total, onNavigate, onC
       shipping_address: { name, line1: address.line1, line2: address.line2, city: address.city, state: address.state, zip: address.zip, country: 'US' },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      order_items: items.map(item => ({
-        id: `oi-${Date.now()}-${item.product_variant_id}`,
-        order_id: `ord-${Date.now()}`,
+      order_items: items.map((item, i) => ({
+        id: `oi-${timestamp}-${i}`,
+        order_id: orderId,
         product_variant_id: item.product_variant_id,
         title_at_time: item.title,
         size_at_time: item.size,

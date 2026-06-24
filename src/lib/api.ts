@@ -14,6 +14,7 @@ import {
   getNewArrivals as getLocalNewArrivals,
   getFeaturedProducts as getLocalFeaturedProducts,
   getOrders as getLocalOrders,
+  addProduct as addProductLocal,
   SEEDED_PRODUCTS,
   SEEDED_ORDERS,
 } from './data';
@@ -307,8 +308,11 @@ export type InsertProduct = Omit<
 
 export async function createProduct(product: InsertProduct): Promise<Product> {
   if (!hasSupabaseConfig) {
+    const timestamp = Date.now();
+    const productId = `prod-${timestamp}`;
+    const now = new Date().toISOString();
     const newProduct: Product = {
-      id: `prod-${Date.now()}`,
+      id: productId,
       title: product.title,
       slug: product.slug,
       description: product.description ?? null,
@@ -321,19 +325,19 @@ export async function createProduct(product: InsertProduct): Promise<Product> {
       featured: product.featured,
       best_seller: product.best_seller,
       made_to_order: product.made_to_order,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
       product_images: (product.product_images ?? []).map((img, i) => ({
-        id: `img-${Date.now()}-${i}`,
-        product_id: `prod-${Date.now()}`,
+        id: `img-${timestamp}-${i}`,
+        product_id: productId,
         url: img.url,
         alt_text: img.alt_text ?? null,
         is_primary: img.is_primary ?? i === 0,
         sort_order: img.sort_order ?? i,
       })),
       product_variants: (product.product_variants ?? []).map((v, i) => ({
-        id: `var-${Date.now()}-${i}`,
-        product_id: `prod-${Date.now()}`,
+        id: `var-${timestamp}-${i}`,
+        product_id: productId,
         size: v.size,
         color: v.color,
         sku: v.sku ?? null,
@@ -343,6 +347,7 @@ export async function createProduct(product: InsertProduct): Promise<Product> {
         available: v.available ?? true,
       })),
     };
+    addProductLocal(newProduct);
     return Promise.resolve(newProduct);
   }
 

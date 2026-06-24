@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react';
 import type { AppView, FilterState, CartItem, Product } from '@/types';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/useToast';
-import { getProductBySlug } from '@/lib/data';
+import { getProductBySlug, formatPrice } from '@/lib/data';
 import { AnnouncementBar } from '@/sections/AnnouncementBar';
 import { Navbar } from '@/sections/Navbar';
 import { Hero } from '@/sections/Hero';
@@ -296,10 +296,6 @@ function App() {
       )}
     </div>
   );
-}
-
-function formatPrice(price: number): string {
-  return `$${price.toFixed(2)}`;
 }
 
 export default App;
