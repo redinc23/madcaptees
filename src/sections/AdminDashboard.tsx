@@ -16,7 +16,84 @@ interface AdminDashboardProps {
   onNavigate: (view: AppView) => void;
 }
 
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'changeme123';
+
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('admin_authenticated') === 'true';
+  });
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authPassword === ADMIN_PASSWORD) {
+      sessionStorage.setItem('admin_authenticated', 'true');
+      setIsAuthenticated(true);
+      setAuthPassword('');
+      setAuthError('');
+    } else {
+      setAuthError('Incorrect password');
+      setAuthPassword('');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('admin_authenticated');
+    setIsAuthenticated(false);
+    onNavigate('home');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white border border-[#0A0A0A]/15 p-8">
+            <h1 className="text-2xl text-[#0A0A0A] mb-2" style={{ fontFamily: "'Anton', sans-serif" }}>ADMIN ACCESS</h1>
+            <p className="text-sm text-[#64748B] mb-6">Enter the admin password to continue</p>
+
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-[#64748B] mb-2" style={{ fontFamily: "'Space Mono', monospace" }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  autoFocus
+                  className="w-full px-4 py-3 border border-[#0A0A0A]/30 focus:border-[#0A0A0A] focus:outline-none"
+                  placeholder="••••••••"
+                />
+              </div>
+              {authError && (
+                <p className="text-xs text-[#D32F2F]">{authError}</p>
+              )}
+              <button
+                type="submit"
+                className="w-full py-3 text-white text-sm uppercase tracking-wider"
+                style={{ backgroundColor: '#C41E3A', fontFamily: "'Space Mono', monospace" }}
+              >
+                Sign In
+              </button>
+            </form>
+
+            <button
+              onClick={() => onNavigate('home')}
+              className="w-full py-3 mt-3 text-sm text-[#64748B] hover:text-[#0A0A0A] transition-colors"
+              style={{ fontFamily: "'Space Mono', monospace" }}
+            >
+              Back to Store
+            </button>
+          </div>
+          <p className="text-xs text-[#64748B]/60 mt-4 text-center" style={{ fontFamily: "'Space Mono', monospace" }}>
+            Default: changeme123 (update VITE_ADMIN_PASSWORD in .env)
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders'>('dashboard');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -368,12 +445,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             </nav>
           </div>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={handleAdminLogout}
             className="flex items-center gap-2 text-xs text-white/50 hover:text-white transition-colors"
             style={{ fontFamily: "'Space Mono', monospace" }}
           >
             <LogOut size={14} />
-            Exit Admin
+            Sign Out
           </button>
         </div>
       </div>
