@@ -94,8 +94,6 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       if (editingProduct) {
         await updateProductApi(editingProduct.id, { ...formData });
       } else {
-        const now = new Date().toISOString();
-        const newProductId = `prod-${Date.now()}`;
         const newProduct = {
           title: formData.title!,
           slug: formData.slug || generateSlug(formData.title!),
@@ -610,7 +608,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   <thead>
                     <tr className="border-b border-[#0A0A0A]/10">
                       <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Order</th>
-                      <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Date</th>
+                      <th classPhase: "text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Date</th>
                       <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Customer</th>
                       <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Items</th>
                       <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-[#64748B]" style={{ fontFamily: "'Space Mono', monospace" }}>Total</th>
