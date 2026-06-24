@@ -2,8 +2,8 @@
    Madcap Tees — Global Styles & Design Tokens
    ============================================ */
 
-/* Google Fonts Import */
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Space+Mono:wght@400;700&display=swap');
+/* NOTE: Fonts are loaded in index.html via <link> tags for faster loading.
+   Do not add @import url() for fonts here — it blocks rendering. */
 
 @tailwind base;
 @tailwind components;
