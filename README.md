@@ -41,22 +41,46 @@ Madcap Tees is a production-ready e-commerce website that replaces manual Instag
 
 ## Tech Stack
 
+### Current (MVP)
 | Layer | Technology |
 |-------|------------|
-| Framework | React 19 + TypeScript + Vite |
-| Styling | Tailwind CSS 3.4 |
-| UI Components | shadcn/ui |
-| State | React Hooks (useState, useCallback, useMemo) |
-| Icons | Lucide React |
-| Fonts | Google Fonts (Anton, Space Mono, DM Sans) |
+| **Frontend** | React 19 + TypeScript + Vite 7 (SPA) |
+| **Styling** | Tailwind CSS 3.4 |
+| **UI Components** | shadcn/ui + Radix |
+| **State Management** | React Hooks (useState, useCallback, useContext) |
+| **Icons** | Lucide React |
+| **Fonts** | Google Fonts (Anton, Space Mono, DM Sans) |
+| **Cart** | localStorage + useCart hook |
+| **Routing** | Manual useState (upgrading to React Router v7 Phase 2) |
 
-### Production Stack (specified in docs)
-- **Frontend**: Next.js 15 (App Router) on Vercel
-- **Backend**: Supabase (PostgreSQL + Auth + Storage)
-- **Payments**: Stripe Checkout + Webhooks
-- **Fulfillment**: Printful/Printify (POD)
-- **Email**: Resend
-- **Hosting**: Vercel + Google Cloud Run
+### Production Stack
+| Service | Purpose |
+|---------|---------|
+| **Vercel** | Frontend hosting, CDN, auto-deploy from git |
+| **Supabase** | PostgreSQL database, Auth, Storage buckets |
+| **Cloudflare** | Domain DNS, DDoS protection, caching |
+| **Stripe** | Payment processing (Phase 2) |
+| **Resend** | Transactional email (Phase 2) |
+| **Printful/Printify** | Print-on-demand fulfillment (Phase 2) |
+
+---
+
+## Status: MVP Ready ✅
+
+**What works now:**
+- ✅ Storefront (hero, collections, shop, product pages)
+- ✅ Admin CRUD (add/edit/delete products)
+- ✅ Cart with free shipping threshold
+- ✅ Demo checkout (orders stored in Supabase)
+- ✅ Responsive design (mobile-first)
+- ✅ Seeded products (8 original Madcap designs)
+
+**Phase 2 (soon):**
+- 🚧 Real Stripe payments
+- 🚧 Customer accounts + order history
+- 🚧 Email confirmations (Resend)
+- 🚧 React Router for real URLs
+- 🚧 Print-on-demand integration
 
 ---
 
@@ -66,16 +90,18 @@ All documentation lives in `/docs/`:
 
 | Document | Purpose |
 |----------|---------|
+| `SETUP.md` | **START HERE** — Local dev setup in 5 minutes |
+| `DEPLOYMENT.md` | Production deployment: Supabase → Vercel → Cloudflare |
 | `PRD.md` | Full product requirements, functional specs, acceptance criteria |
 | `ARCHITECTURE.md` | System architecture, data flows, caching strategy |
 | `API_SPEC.md` | Data models, TypeScript interfaces, API endpoints, RLS policies |
-| `DEPLOYMENT.md` | Step-by-step deployment runbook for Vercel + Supabase + Stripe |
 | `DESIGN_SYSTEM.md` | Color palette, typography, component specs, animations |
 | `SECURITY.md` | Authentication, RLS policies, Stripe security, incident response |
-| `SEO_ACCESSIBILITY.md` | SEO strategy, WCAG 2.1 AA compliance, performance targets |
 
-### Database Schema
-Full Supabase migration SQL is in `/supabase/migrations/001_initial_schema.sql`.
+### Database & Infrastructure
+- **Database Schema**: `/supabase/migrations/001_initial_schema.sql`
+- **Vercel Config**: `/vercel.json`
+- **Environment Template**: `/.env.example`
 
 ---
 
@@ -103,15 +129,27 @@ Full Supabase migration SQL is in `/supabase/migrations/001_initial_schema.sql`.
 ## Quick Start
 
 ```bash
-# Install dependencies
-cd app && npm install
+# 1. Clone repo
+git clone https://github.com/redinc23/madcaptees.git
+cd madcaptees
 
-# Run dev server
+# 2. Install dependencies
+npm install
+
+# 3. Set up environment (optional - app works without it)
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials (or leave blank for seeded data)
+
+# 4. Run dev server
 npm run dev
+# Opens http://localhost:3000
 
-# Build for production
-npm run build
+# 5. Admin dashboard
+# Visit http://localhost:3000/admin-dashboard
+# Add products, test cart & checkout
 ```
+
+**Full setup guide**: See [`docs/SETUP.md`](docs/SETUP.md)
 
 ---
 
@@ -148,17 +186,25 @@ Quick summary:
 
 ## Environment Variables
 
+Copy `.env.example` to `.env.local` and fill in your values:
+
+```bash
+# Supabase (required for production data persistence)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+
+# Site URL (for OG images, canonical links)
+VITE_SITE_URL=https://madcaptees.com
+
+# Stripe (Phase 2)
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-STRIPE_SECRET_KEY=
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-PRINTFUL_API_KEY=
-RESEND_API_KEY=
-NEXT_PUBLIC_SITE_URL=
-```
+
+**Rule**: Environment variables starting with `VITE_` are exposed to the browser (public). All others are kept secret on the server.
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for full details on getting credentials.
 
 ---
 
