@@ -30,7 +30,6 @@ import type { Database } from '@/types/database';
 type DbProductRow = Database['public']['Tables']['products']['Row'];
 type DbProductImageRow = Database['public']['Tables']['product_images']['Row'];
 type DbProductVariantRow = Database['public']['Tables']['product_variants']['Row'];
-type DbCollectionRow = Database['public']['Tables']['collections']['Row'];
 type DbOrderRow = Database['public']['Tables']['orders']['Row'];
 type DbOrderItemRow = Database['public']['Tables']['order_items']['Row'];
 
@@ -97,7 +96,7 @@ function transformOrder(row: DbOrderRow & { order_items?: DbOrderItemRow[] | nul
     shipping_cost: row.shipping_cost,
     status: row.status as OrderStatus,
     email: row.email,
-    shipping_address: row.shipping_address as Order['shipping_address'],
+    shipping_address: row.shipping_address as unknown as Order['shipping_address'],
     created_at: row.created_at,
     updated_at: row.updated_at,
     order_items: (row.order_items ?? []).map((item) => ({
